@@ -97,13 +97,26 @@ canvas { width: 100%; height: 100%; border-radius: 8px; background: #0b0e1d; dis
 .context-menu .divider { height: 1px; background: rgba(255,255,255,0.08); margin: 6px 4px; }
 
 /* Matrix editor */
-.matrix-controls { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.matrix-controls {
+  /* Three rows:
+     1) Add button
+     2) Delete button
+     3) Input + clear actions (grouped on the left) */
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  grid-auto-rows: minmax(36px, auto);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
 .matrix-controls button {
   background: var(--panel-2);
   color: var(--text);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 8px;
   padding: 8px 12px;
+  height: 36px;
+  white-space: nowrap;
   cursor: pointer;
 }
 .matrix-controls button:hover { border-color: rgba(255,255,255,0.16); }
@@ -117,7 +130,22 @@ canvas { width: 100%; height: 100%; border-radius: 8px; background: #0b0e1d; dis
   border: 1px solid rgba(255,255,255,0.08);
   background: var(--panel-2);
   color: var(--text);
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
+/* Hide number input spinners in WebKit */
+.matrix-controls input[type="number"]::-webkit-outer-spin-button,
+.matrix-controls input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Explicit placement for 3-row layout */
+.matrix-controls #btn-add-vertex { grid-column: 1; grid-row: 1; }
+.matrix-controls #vertex-index-input { grid-column: 1; grid-row: 2; }
+.matrix-controls #btn-delete-vertex { grid-column: 2; grid-row: 2; }
+.matrix-controls #btn-clear-matrix { grid-column: 1; grid-row: 3; }
+.matrix-controls #btn-clear-way { grid-column: 2; grid-row: 3; }
 .matrix-controls input[type="number"]:focus { outline: 2px solid var(--accent); }
 .matrix { border-collapse: collapse; width: 100%; table-layout: fixed; }
 .matrix th, .matrix td { border: 1px solid rgba(255,255,255,0.08); padding: 0; }

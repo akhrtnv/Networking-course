@@ -1,4 +1,4 @@
-export function dijkstra(graph, startId, endId) {
+export function Dijkstra(graph, startId, endId) {
   const vertices = graph.vertices.map(v => v.id);
   if (!vertices.includes(startId) || !vertices.includes(endId)) {
     return { distance: Infinity, path: [], prev: new Map(), visited: new Set() };

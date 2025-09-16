@@ -1,11 +1,13 @@
 import { GraphModel } from './graph/GraphModel.js';
-import { dijkstra } from './graph/Dijkstra.js';
+import { Dijkstra } from './graph/Dijkstra.js';
 import { CanvasView } from './ui/CanvasView.js';
 import { ContextMenu } from './ui/ContextMenu.js';
 import { Matrix } from './ui/Matrix.js';
 import { buildToolbar } from './ui/Controls.js';
 
-const model = new GraphModel(10);
+const maxVertNum = 10;
+
+const model = new GraphModel(maxVertNum);
 
 const canvas = new CanvasView(document.getElementById('graph-canvas'), model);
 const menu = new ContextMenu(document.getElementById('context-menu'));
@@ -21,14 +23,19 @@ buildToolbar(document.getElementById('toolbar'), {
   runDijkstra: handleRun,
 });
 
-function setStatus(text) { status.textContent = text; }
+// Keep status bar height when clearing text by using a non-breaking space
+function setStatus(text) {
+  const t = (text == null || String(text).trim() === '') ? '\u00A0' : String(text);
+  status.textContent = t;
+}
 
 function drawAll() {
   canvas.draw();
   matrix.draw();
 }
 
-// Matrix-panel buttons
+// ---------- Matrix-panel buttons ----------
+
 const btnAddVertex = document.getElementById('btn-add-vertex');
 if (btnAddVertex) {
   btnAddVertex.addEventListener('click', () => {
@@ -45,17 +52,38 @@ if (btnDeleteVertex) {
     const raw = vertexDeleteInput.value;
     
     const isPositiveInt = /^\+?\d+$/;
-    if (!isPositiveInt.test(raw.trim())) { setStatus('Введите корректный номер вершины.'); return; }
+    if (!isPositiveInt.test(raw.trim())) { setStatus('Номер вершины является неотрицательным целым числом.'); return; }
     
     const id = Number(raw);
+
+    if (!(id < maxVertNum)) {setStatus(`Номер вершины не может быть больше ${maxVertNum - 1}.`); return; }
+    
     if (!model.findVertex(id)) { setStatus(`Вершина ${id} не найдена.`); return; }
     
     model.removeVertex(id);
     drawAll();
-    setStatus(`Вершина ${id} удалена.`);
   });
 }
 
+const btnClearMatrix = document.getElementById('btn-clear-matrix');
+if (btnClearMatrix) {
+  btnClearMatrix.addEventListener('click', () => {
+    model.edges = [];
+    drawAll();
+  });
+}
+
+const btnClearWay = document.getElementById('btn-clear-way');
+if (btnClearWay) {
+  btnClearWay.addEventListener('click', () => {
+    setStatus(null); 
+    canvas.setHighlight([]);
+    canvas.setStart(null);
+    canvas.setEnd(null);
+  });
+}
+
+// Update all when matrix changed
 const matrixEditor = document.getElementById('matrix-editor');
 if (matrixEditor) {
   matrixEditor.addEventListener('change', () => {
@@ -63,24 +91,52 @@ if (matrixEditor) {
   })
 }
 
-// Context menu bindings for graph operations
+function checkEdgeWeightStatuses(status) {
+  if (status === 'correct' || status === 'null') {
+    setStatus(null);
+  } else if (status === 'neg-weigth' || status === 'not-a-num' || status === 'empty') {
+    setStatus('Вес должен быть неотрицательным числом.');
+  }
+}
+
+// Update matrix when edge added
+canvas.onChanged = (status) => {
+  if (status === 'correct') {
+    matrix.draw();
+  }
+  checkEdgeWeightStatuses(status);
+};
+
+// ---------- Context menu ----------
+
 canvas.onContextMenu = ({ x, y, hitV, hitE }) => {
   const items = [];
   if (hitV) {
-    items.push({ label: 'Начальная вершина', onClick: () => { canvas.setStart(hitV.id); canvas.draw(); } });
-    items.push({ label: 'Конечная вершина', onClick: () => { canvas.setEnd(hitV.id); canvas.draw(); } })
+    items.push({ label: 'Начальная вершина', onClick: () => { canvas.setStart(hitV.id); } });
+    items.push({ label: 'Конечная вершина', onClick: () => { canvas.setEnd(hitV.id); } })
     items.push({ label: `Удалить вершину ${hitV.id}`, onClick: () => { model.removeVertex(hitV.id); drawAll(); } });
   }
   else if (hitE) {
     items.push({ label: `Удалить дугу ${hitE.from}→${hitE.to}`, onClick: () => { model.removeEdge(hitE.from, hitE.to); drawAll(); } });
     items.push({ label: `Изменить вес ${hitE.from}→${hitE.to}`, onClick: () => {
-      const w = prompt('Новый вес (неотриц.)', String(hitE.weight)); if (w !== null && !isNaN(Number(w)) && Number(w) >= 0) { model.setEdgeWeight(hitE.from, hitE.to, Number(w)); drawAll(); }
+      const raw = prompt('Новый вес (неотрицательный)');
+      const status = model.checkEdgeWeight(raw);
+      if (status === 'correct') { 
+        model.setEdgeWeight(hitE.from, hitE.to, Number(raw));
+        drawAll();
+      }
+      checkEdgeWeightStatuses(status);
     }});
   }
   else {
     items.push({ label: 'Добавить вершину', onClick: () => { model.addVertex(); drawAll(); } });
-    items.push({ label: 'Добавить дугу', onClick: () => { canvas.setMode('add-edge'); setStatus('Режим добавления дуги: кликните на стартовую и конечную вершины.'); } });
-    items.push({ label: 'Очистить путь', onClick: () => canvas.setHighlight([]) });
+    items.push({ label: 'Добавить дугу', onClick: () => { canvas.setMode('add-edge'); setStatus('Добавление дуги: кликните на начальную и конечную вершины.'); } });
+    items.push({ label: 'Очистить путь', onClick: () => {
+      setStatus(null); 
+      canvas.setHighlight([]);
+      canvas.setStart(null);
+      canvas.setEnd(null);
+    }});
   }
   
   menu.setItems(items);
@@ -89,9 +145,10 @@ canvas.onContextMenu = ({ x, y, hitV, hitE }) => {
 menu.onHide = () => {};
 
 function handleRun() {
-  const { start, end } = canvas.selection;
+  const start = canvas.start;
+  const end = canvas.end;
   if (start == null || end == null) { setStatus('Выберите начальную и конечную вершины.'); return; }
-  const res = dijkstra(model, start, end);
+  const res = Dijkstra(model, start, end);
   if (!res.path.length) {
     canvas.setHighlight([]);
     setStatus('Пути не существует.');

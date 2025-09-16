@@ -20,11 +20,9 @@ export class CanvasView {
   }
 
   setMode(mode) {
-    this.mode = (mode === 'add-edge') ? 'add-edge' : 'idle';
-    if (this.mode !== 'add-edge') {
-      // Cancel unfinished edge if leaving add-edge mode
-      this.pendingEdge.from = null;
-    }
+    this.mode = mode
+    // Cancel unfinished edge if leaving add-edge mode
+    this.pendingEdge.from = null;
   }
 
   setStart(id) { this.start = id; this.draw(); }
@@ -50,13 +48,15 @@ export class CanvasView {
         if (this.mode === 'add-edge') {
           if (this.pendingEdge.from === null && hitV) {
             this.pendingEdge.from = hitV.id;
+            this._changed('edge-pending');
           } else if (this.pendingEdge.from !== null && hitV) {
-            const w = prompt('Вес дуги (неотриц.)', '1');
-            if (w !== null && !isNaN(Number(w)) && Number(w) >= 0) {
-              this.model.addEdge(this.pendingEdge.from, hitV.id, Number(w));
-              this.pendingEdge.from = null;
-              this._changed();
+            const raw = prompt('Вес дуги (неотрицательный)');
+            const status = this.model.checkEdgeWeight(raw);
+            if (status === 'correct') {
+              this.model.addEdge(this.pendingEdge.from, hitV.id, Number(raw));
             }
+            this.setMode('idle')
+            this._changed(status);
           }
         } else if (hitV) {
           this.drag = { active: true, id: hitV.id, dx: p.x - hitV.x, dy: p.y - hitV.y };
@@ -65,7 +65,7 @@ export class CanvasView {
     });
 
     // Left button released
-    window.addEventListener('mouseup', () => { if (this.drag.active) { this.drag.active = false; this._changed(); } });
+    window.addEventListener('mouseup', () => { if (this.drag.active) { this.drag.active = false; this._changed('vertex-moved'); } });
     
     window.addEventListener('mousemove', (e) => {
       if (!this.drag.active) return;
@@ -77,7 +77,7 @@ export class CanvasView {
     });
   }
 
-  _changed() { this.draw(); if (this.onChanged) this.onChanged(); }
+  _changed(reason) { this.draw(); if (this.onChanged) this.onChanged(reason); }
 
   // Convert to canvas coordinates
   _toCanvas(e) {
@@ -144,9 +144,10 @@ export class CanvasView {
     for (const v of this.model.vertices) {
       const isStart = this.start === v.id;
       const isEnd = this.end === v.id;
+      const isNewEdgeVert = this.pendingEdge.from === v.id;
       ctx.save();
       ctx.beginPath();
-      ctx.fillStyle = isStart ? '#19c37d' : isEnd ? '#ff6b6b' : '#7aa2ff';
+      ctx.fillStyle = isNewEdgeVert ? 'yellow' : isStart ? '#19c37d' : isEnd ? '#ff6b6b' : '#7aa2ff';
       ctx.shadowColor = 'rgba(0,0,0,0.5)';
       ctx.shadowBlur = 6;
       ctx.arc(v.x, v.y, VERTEX_R, 0, Math.PI * 2);

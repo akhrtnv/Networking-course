@@ -49,6 +49,22 @@ export class GraphModel {
     if (e) e.weight = Number(weight);
   }
 
+  checkEdgeWeight(input) {
+    if (input === null) return 'null';
+    
+    const s = input.trim();
+    if (s === '') return 'empty';
+
+    const n = Number(s.replace(',', '.'));
+    if (!Number.isFinite(n)) {
+      return 'not-a-num';
+    } else if (n < 0) {
+      return 'neg-weigth';
+    } else {
+      return 'correct';
+    }
+  }
+
   toMatrix() {
     const ids = this.vertices.map(v => v.id);
     const index = new Map(ids.map((id, i) => [id, i]));

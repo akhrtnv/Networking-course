@@ -14,7 +14,9 @@ export class Matrix {
   }
 
   draw() {
+    this.table.innerHTML = '';  // Delete page table
     const { matrix, order } = this.model.toMatrix();
+    if (matrix.length === 0) { return };
     this._suspend++;
     try {
       // setSize triggers full table render to match matrix size
@@ -36,7 +38,6 @@ export class Matrix {
   }
 
   _render(order) {
-    this.table.innerHTML = '';  // Delete page table
     this.inputs = [];
     const cols = Math.max(1, this.size + 1);
     const cg = document.createElement('colgroup');
@@ -67,14 +68,8 @@ export class Matrix {
         if (i === j) { input.readOnly = true; td.className = 'diag'; }
         input.inputMode = 'numeric';
         // On user edits: update model and notify listeners
-
-
-        // TODO: how to good handle inputs?
         input.addEventListener('input', () => this._handleInputDebounced(i, j, input));
         input.addEventListener('change', () => this._handleInput(i, j, input));
-        
-        
-        
         td.appendChild(input);
         row.appendChild(td);
         rowInputs.push(input);
